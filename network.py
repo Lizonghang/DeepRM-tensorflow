@@ -24,7 +24,7 @@ class Network:
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
-        self.net_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='params')
+        self.net_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
     def _build_net(self):
         self.states = tf.placeholder(tf.float32, [None, 1, self.input_height, self.input_width])
