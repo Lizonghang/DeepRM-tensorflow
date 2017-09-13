@@ -241,12 +241,12 @@ def launch(params, render=False, repre='image', end='no_new_job'):
 
         print "-----------------"
         print "Iteration: \t %i" % iter
-        print "NumTrajs: \t %i" % len(eprews)
-        print "NumTimesteps: \t %i" % np.sum(eplens)
+        # print "NumTrajs: \t %i" % len(eprews)
+        # print "NumTimesteps: \t %i" % np.sum(eplens)
         print "MaxReward: \t %s" % np.average([np.max(rew) for rew in all_eprews])
         print "MeanReward: \t %s +- %s" % (np.mean(eprews), np.std(eprews))
         print "MeanSlowdown: \t %s" % np.mean(all_slowdown)
-        print "MeanLen: \t %s +- %s" % (np.mean(eplens), np.std(eplens))
-        print "MeanEntropy \t %s" % (np.mean(all_entropy))
-        print "Elapsed time\t %s" % (timer_end - timer_start), "seconds"
+        # print "MeanLen: \t %s +- %s" % (np.mean(eplens), np.std(eplens))
+        # print "MeanEntropy \t %s" % (np.mean(all_entropy))
+        # print "Elapsed time\t %s" % (timer_end - timer_start), "seconds"
         print "-----------------"
