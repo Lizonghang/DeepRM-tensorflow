@@ -48,7 +48,7 @@ class Parameters:
         self.dismiss_penalty = -1     # penalty for missing a job because the queue is full
 
         self.num_frames = 1           # number of frames to combine and process
-        self.lr = 0.001               # learning rate
+        self.lr = 0.01               # learning rate
         self.reward_decay = 0.9       # for rms prop
         self.epsilon = 1e-9           # for rms prop
 
