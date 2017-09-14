@@ -53,23 +53,28 @@ class Network:
         self.loss = tf.reduce_mean(self.neg_log_prob * self.rewards)
 
         self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.reward_decay, epsilon=self.epsilon)
+        self.train_op = self.optimizer.minimize(self.loss)
 
     def choose_action(self, state):
         act_prob = self.sess.run(self.act_prob, feed_dict={self.states: state[None, None, :, :]})
         action = np.random.choice(range(act_prob.shape[-1]), p=act_prob)
         return action, act_prob
 
+    def learn(self, states, actions, rewards):
+        self.sess.run(self.train_op, feed_dict={self.states: states, self.actions: actions, self.rewards: rewards})
+
+    # def get_gradient(self, states, actions, rewards):
+    #     grads_all = self.optimizer.compute_gradients(self.loss)
+    #     grad_vars = [v for (g, v) in grads_all if g is not None]
+    #     grads_and_vars_op = self.optimizer.compute_gradients(self.loss, grad_vars)
+    #     return grads_and_vars_op
+    #
+    # def apply_gradient(self, grads_and_vars, states, actions, rewards):
+    #     self.train_op = self.optimizer.apply_gradients(grads_and_vars)
+    #     self.sess.run(self.train_op, feed_dict={self.states: states, self.actions: actions, self.rewards: rewards})
+
     def get_params(self):
         return self.net_params
-
-    def get_gradient(self, states, actions, rewards):
-        grads_all = self.optimizer.compute_gradients(self.loss)
-        grad_vars = [v for (g, v) in grads_all if g is not None]
-        grads_and_vars = self.optimizer.compute_gradients(self.loss, grad_vars)
-        return grads_and_vars
-
-    def apply_gradient(self, grads_and_vars):
-        self.optimizer.apply_gradients(grads_and_vars)
 
     def set_params(self, new_net_params):
         self.sess.run([tf.assign(t, e) for t, e in zip(self.net_params, new_net_params)])

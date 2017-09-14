@@ -1,5 +1,6 @@
 from network import Network
 import numpy as np
+import tensorflow as tf
 import job_distribution
 import environment
 import time
@@ -61,6 +62,7 @@ def concatenate_all_ob(trajs, params):
     for i in xrange(len(trajs)):
         for j in xrange(len(trajs[i]['rewards'])):
             all_ob[timesteps, 0, :, :] = trajs[i]['obs'][j]
+            timesteps += 1
     return all_ob
 
 
@@ -94,10 +96,14 @@ def process_all_info(trajs):
 
 
 def get_traj_worker(pg_learner, env, params):
+    """
+    Each worker run params.num_seq_per_batch times, each episode contains params.episode_max_length loops.
+    """
     trajs = []
     for i in xrange(params.num_seq_per_batch):
         traj = get_traj(pg_learner, env, params.episode_max_length)
         trajs.append(traj)
+
     all_obs = concatenate_all_ob(trajs, params)
 
     # Compute discounted sums of rewards
@@ -120,7 +126,6 @@ def get_traj_worker(pg_learner, env, params):
     enter_time, finish_time, job_len = process_all_info(trajs)
     finished_idx = (finish_time >= 0)
     all_slowdown = (finish_time[finished_idx] - enter_time[finished_idx]) / job_len[finished_idx]
-
     all_entropy = np.concatenate([traj["entropy"] for traj in trajs])
 
     return {
@@ -151,91 +156,61 @@ def concatenate_all_ob_across_examples(all_obs, params):
 
 
 def launch(params, render=False, repre='image', end='no_new_job'):
-    print "Preparing for envs and workers."
-
-    pg_learners = []
-    envs = []
-
     nw_len_seqs, nw_size_seqs = job_distribution.generate_sequence_work(params, seed=42)
 
-    for ex in xrange(params.num_ex):
-        env = environment.Env(params, nw_len_seqs=nw_len_seqs, nw_size_seqs=nw_size_seqs, render=False, repre=repre, end=end)
-        env.seq_no = ex
-        envs.append(env)
+    print "Preparing for env ..."
+    env = environment.Env(params, nw_len_seqs=nw_len_seqs, nw_size_seqs=nw_size_seqs, render=False, repre=repre, end=end)
 
-    for ex in xrange(params.batch_size + 1):  # last worker for updating the parameters
-        pg_learner = Network(params.network_input_height,
+    print "Preparing for {0} workers ...".format(params.batch_size)
+    workers = []
+    for ex in xrange(params.batch_size):
+        worker = Network(params.network_input_height,
                              params.network_input_width,
                              params.network_output_dim,
                              params.lr,
                              params.reward_decay,
                              params.epsilon)
-        pg_learners.append(pg_learner)
+        workers.append(worker)
 
-    print "Start training."
+    print "Preparing for learner ..."
+    learner = Network(params.network_input_height,
+                      params.network_input_width,
+                      params.network_output_dim,
+                      params.lr,
+                      params.reward_decay,
+                      params.epsilon)
 
+    print "Start training, this will loop {0} times.".format(params.num_epochs)
     timer_start = time.time()
-
     for iter in xrange(1, params.num_epochs):
-
-        learner_and_env_idxs = []
-        result = []
-
-        ex_indices = range(params.num_ex)
-        np.random.shuffle(ex_indices)
-
         all_eprews = []
-        grad_and_vars_all = []
+        grads_and_vars_all = []
         eprews = []
         eplens = []
         all_slowdown = []
         all_entropy = []
 
-        ex_counter = 0
-        for ex in xrange(params.num_ex):
-            ex_idx = ex_indices[ex]
-            learner_and_env_idxs.append([ex_counter, ex_idx])
-            ex_counter += 1
+        results = []
+        for ex_counter in xrange(params.batch_size):
+            result = get_traj_worker(workers[ex_counter], env, params)
+            results.append(result)
+            all_eprews.extend(result["all_eprews"])
+            eprews.extend(result["all_eprews"])  # episode total rewards
+            eplens.extend(result["all_eplens"])  # episode lengths
+            all_slowdown.extend(result["all_slowdown"])
+            all_entropy.extend(result["all_entropy"])
 
-            if ex_counter > params.batch_size or ex == params.num_ex - 1:
-                ex_counter = 0
+        all_obs = concatenate_all_ob_across_examples([r["all_obs"] for r in results], params)
+        all_actions = np.concatenate([r["all_actions"] for r in results])
+        all_advs = np.concatenate([r["all_advs"] for r in results])
 
-                for idx in learner_and_env_idxs:
-                    result.append(get_traj_worker(pg_learners[idx[0]], envs[idx[1]], params))
-
-                learner_and_env_idxs = []  # clear
-
-                all_obs = concatenate_all_ob_across_examples([r["all_obs"] for r in result], params)
-                all_actions = np.concatenate([r["all_actions"] for r in result])
-                all_advs = np.concatenate([r["all_advs"] for r in result])
-
-                # Do policy gradient update step, using the first agent
-                # put the new parameter in the last 'worker', then propagate the update at the end
-                learner = pg_learners[params.batch_size]
-                grad_and_vars = learner.get_gradient(all_obs, all_actions, all_advs)
-                grad_and_vars_all.append(grad_and_vars)
-
-                all_eprews.extend([r["all_eprews"] for r in result])
-
-                eprews.extend(np.concatenate([r["all_eprews"] for r in result]))  # episode total rewards
-                eplens.extend(np.concatenate([r["all_eplens"] for r in result]))  # episode lengths
-
-                all_slowdown.extend(np.concatenate([r["all_slowdown"] for r in result]))
-                all_entropy.extend(np.concatenate([r["all_entropy"] for r in result]))
-
-        # assemble gradients
-        grad_and_vars = grad_and_vars_all[0]
-        for i in xrange(1, len(grad_and_vars_all)):
-            for j in xrange(len(grad_and_vars)):
-                grad_and_vars[j] += grad_and_vars_all[i][j]
+        # learn
+        learner.learn(all_obs, all_actions, all_advs)
 
         # propagate network parameters to others
-        learner = pg_learners[params.batch_size]
-        learner.apply_gradient(grad_and_vars)
-
         net_params = learner.get_params()
         for i in xrange(params.batch_size):
-            pg_learners[i].set_params(net_params)
+            workers[i].set_params(net_params)
 
         timer_end = time.time()
 
@@ -248,5 +223,5 @@ def launch(params, render=False, repre='image', end='no_new_job'):
         print "MeanSlowdown: \t %s" % np.mean(all_slowdown)
         # print "MeanLen: \t %s +- %s" % (np.mean(eplens), np.std(eplens))
         # print "MeanEntropy \t %s" % (np.mean(all_entropy))
-        # print "Elapsed time\t %s" % (timer_end - timer_start), "seconds"
+        print "Elapsed time\t %s" % (timer_end - timer_start), "seconds"
         print "-----------------"
