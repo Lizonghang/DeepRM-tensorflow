@@ -31,20 +31,52 @@ class Network:
         self.actions = tf.placeholder(tf.int32, [None, ], name='actions')
         self.rewards = tf.placeholder(tf.float32, [None, ], name='rewards')
 
-        self.hidden = tf.layers.dense(
+        self.l_dense1 = tf.layers.dense(
             inputs=self.states,
             units=20,
             activation=tf.nn.relu,
-            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.01),
-            bias_initializer=tf.constant_initializer(0)
+            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
+            bias_initializer=tf.constant_initializer(0.05),
+            name='dense1'
+        )
+
+        self.l_dense2 = tf.layers.dense(
+            inputs=self.l_dense1,
+            units=40,
+            activation=tf.nn.relu,
+            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
+            bias_initializer=tf.constant_initializer(0.05),
+            name='dense2'
+        )
+
+        self.l_drop1 = tf.layers.dropout(
+            inputs=self.l_dense2,
+            rate=0.7,
+            name='dropout1'
+        )
+
+        self.l_dense3 = tf.layers.dense(
+            inputs=self.l_drop1,
+            units=20,
+            activation=tf.nn.relu,
+            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
+            bias_initializer=tf.constant_initializer(0.05),
+            name='dense3'
+        )
+
+        self.l_drop2 = tf.layers.dropout(
+            inputs=self.l_dense3,
+            rate=0.9,
+            name='dropout2'
         )
 
         self.output = tf.layers.dense(
-            inputs=self.hidden,
+            inputs=self.l_drop2,
             units=self.n_actions,
             activation=None,
-            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.01),
-            bias_initializer=tf.constant_initializer(0)
+            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
+            bias_initializer=tf.constant_initializer(0.05),
+            name='dense4'
         )
 
         self.act_prob = tf.nn.softmax(self.output)[0][0]
