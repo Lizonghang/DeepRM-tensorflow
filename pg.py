@@ -14,7 +14,7 @@ learner = Network(
     params.reward_decay,
     params.epsilon
 )
-max_reward = -100
+
 for dynamic_env_time in range(50):
 
     nw_len_seqs, nw_size_seqs = job_distribution.generate_sequence_work(params, seed=42)
@@ -53,12 +53,10 @@ for dynamic_env_time in range(50):
 
                 running_reward = running_reward * 0.9 + rewards_sum * 0.1 if 'running_reward' in globals() else rewards_sum
 
-                # print("training on env:", dynamic_env_time, " episode:", i_episode, "  reward:", int(running_reward))
-                if running_reward > max_reward:  max_reward = running_reward
-                # learner.learn(obs, actions, rewards)
+                print("training on env:", dynamic_env_time, " episode:", i_episode, "  reward:", int(running_reward))
+
+                learner.learn(obs, actions, rewards)
 
                 break
 
             observation = observation_
-
-    print max_reward
