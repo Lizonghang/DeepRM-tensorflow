@@ -1,7 +1,5 @@
 import tensorflow as tf
 import numpy as np
-tf.set_random_seed(1)
-np.random.seed(1)
 
 
 class Network:
@@ -31,55 +29,54 @@ class Network:
         self.actions = tf.placeholder(tf.int32, [None, ], name='actions')
         self.rewards = tf.placeholder(tf.float32, [None, ], name='rewards')
 
-        self.l_dense1 = tf.layers.dense(
-            inputs=self.states,
-            units=20,
-            activation=tf.nn.relu,
-            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
-            bias_initializer=tf.constant_initializer(0.05),
-            name='dense1'
-        )
+        state_image = tf.reshape(self.states, [-1, self.input_height, self.input_width, 1])
 
-        self.l_dense2 = tf.layers.dense(
-            inputs=self.l_dense1,
-            units=40,
-            activation=tf.nn.relu,
-            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
-            bias_initializer=tf.constant_initializer(0.05),
-            name='dense2'
-        )
+        with tf.name_scope('conv1') as scope:
+            kernel = self._variable_with_weight_decay('kernel1', shape=[3, 3, 1, 32], stddev=0.05, wd=0.0)
+            conv = tf.nn.conv2d(state_image, kernel, [1, 1, 1, 1], padding='SAME')
+            biases = self._variable_on_cpu('biases1', [32], tf.constant_initializer(0.1))
+            bias = tf.nn.bias_add(conv, biases)
+            conv1 = tf.nn.relu(bias, name=scope)
 
-        self.l_drop1 = tf.layers.dropout(
-            inputs=self.l_dense2,
-            rate=0.7,
-            name='dropout1'
-        )
+        pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME', name='pool1')
 
-        self.l_dense3 = tf.layers.dense(
-            inputs=self.l_drop1,
-            units=20,
-            activation=tf.nn.relu,
-            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
-            bias_initializer=tf.constant_initializer(0.05),
-            name='dense3'
-        )
+        with tf.name_scope('conv2') as scope:
+            kernel = self._variable_with_weight_decay('kernel2', shape=[3, 3, 32, 64], stddev=0.05, wd=0.0)
+            conv = tf.nn.conv2d(pool1, kernel, [1, 1, 1, 1], padding='SAME')
+            biases = self._variable_on_cpu('biases2', [64], tf.constant_initializer(0.1))
+            bias = tf.nn.bias_add(conv, biases)
+            conv2 = tf.nn.relu(bias, name=scope)
 
-        self.l_drop2 = tf.layers.dropout(
-            inputs=self.l_dense3,
-            rate=0.9,
-            name='dropout2'
-        )
+        pool2 = tf.nn.max_pool(conv2, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME', name='pool2')
 
-        self.output = tf.layers.dense(
-            inputs=self.l_drop2,
-            units=self.n_actions,
-            activation=None,
-            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
-            bias_initializer=tf.constant_initializer(0.05),
-            name='dense4'
-        )
+        with tf.name_scope('local1') as scope:
+            local1 = tf.layers.dense(
+                inputs=pool2,
+                units=32,
+                activation=tf.nn.relu,
+                kernel_initializer=tf.truncated_normal_initializer(0.05),
+                bias_initializer=tf.constant_initializer(0.1),
+                name=scope
+            )
 
-        self.act_prob = tf.nn.softmax(self.output)[0][0]
+        with tf.name_scope('drop') as scope:
+            drop = tf.layers.dropout(
+                inputs=local1,
+                rate=0.3,
+                name=scope
+            )
+
+        with tf.name_scope('local2') as scope:
+            local2 = tf.layers.dense(
+                inputs=drop,
+                units=self.n_actions,
+                activation=None,
+                kernel_initializer=tf.truncated_normal_initializer(0.05),
+                bias_initializer=tf.constant_initializer(0.1),
+                name=scope
+            )
+
+        self.act_prob = tf.nn.softmax(local2)[0][0][0]
 
         self.neg_log_prob = tf.reduce_sum(-tf.log(self.act_prob) * tf.one_hot(self.actions, self.n_actions), axis=1)
         self.loss = tf.reduce_mean(self.neg_log_prob * self.rewards)
@@ -90,7 +87,7 @@ class Network:
 
     def choose_action(self, state):
         act_prob = self.sess.run(self.act_prob, feed_dict={self.states: state[None, :, :]})
-        action = np.random.choice(range(act_prob.shape[-1]), p=act_prob)
+        action = np.random.choice(len(act_prob), p=act_prob)
         return action
 
     def learn(self, states, actions, rewards):
@@ -112,3 +109,15 @@ class Network:
         discounted_experience_rewards -= np.mean(discounted_experience_rewards)
         discounted_experience_rewards /= np.std(discounted_experience_rewards)
         return discounted_experience_rewards
+
+    def _variable_on_cpu(self, name, shape, initializer):
+        with tf.device('/cpu:0'):
+            var = tf.get_variable(name, shape, initializer=initializer)
+        return var
+
+    def _variable_with_weight_decay(self, name, shape, stddev, wd):
+        var = self._variable_on_cpu(name, shape, tf.truncated_normal_initializer(stddev=stddev))
+        if wd:
+            weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
+            tf.add_to_collection('losses', weight_decay)
+        return var
