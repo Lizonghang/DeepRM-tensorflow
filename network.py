@@ -40,8 +40,10 @@ class Network:
             name='dense1'
         )
 
+        drop = tf.nn.dropout(self.l_dense1, keep_prob=0.9)
+
         self.l_dense2 = tf.layers.dense(
-            inputs=self.l_dense1,
+            inputs=drop,
             units=40,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
@@ -49,14 +51,10 @@ class Network:
             name='dense2'
         )
 
-        self.l_drop1 = tf.layers.dropout(
-            inputs=self.l_dense2,
-            rate=0.7,
-            name='dropout1'
-        )
+        drop = tf.nn.dropout(self.l_dense2, keep_prob=0.8)
 
         self.l_dense3 = tf.layers.dense(
-            inputs=self.l_drop1,
+            inputs=drop,
             units=20,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
@@ -64,14 +62,10 @@ class Network:
             name='dense3'
         )
 
-        self.l_drop2 = tf.layers.dropout(
-            inputs=self.l_dense3,
-            rate=0.9,
-            name='dropout2'
-        )
+        drop = tf.nn.dropout(self.l_dense3, keep_prob=1.0)
 
         self.output = tf.layers.dense(
-            inputs=self.l_drop2,
+            inputs=drop,
             units=self.n_actions,
             activation=None,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
@@ -84,8 +78,8 @@ class Network:
         self.neg_log_prob = tf.reduce_sum(-tf.log(self.act_prob) * tf.one_hot(self.actions, self.n_actions), axis=1)
         self.loss = tf.reduce_mean(self.neg_log_prob * self.rewards)
 
-        # self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.reward_decay, epsilon=self.epsilon)
-        self.optimizer = tf.train.GradientDescentOptimizer(self.lr)
+        self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.reward_decay, epsilon=self.epsilon)
+        # self.optimizer = tf.train.GradientDescentOptimizer(self.lr)
         self.train_op = self.optimizer.minimize(self.loss)
 
     def choose_action(self, state):
