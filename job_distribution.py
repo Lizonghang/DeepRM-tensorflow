@@ -1,8 +1,7 @@
 import numpy as np
 
 
-def generate_sequence_work(params, seed=42):
-    np.random.seed(seed)
+def generate_sequence_work(params):
     nw_dist = params.dist.bi_model_dist
     simu_len = params.simu_len * params.num_ex
 

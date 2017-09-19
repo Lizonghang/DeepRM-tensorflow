@@ -1,7 +1,5 @@
 import tensorflow as tf
 import numpy as np
-tf.set_random_seed(1)
-np.random.seed(1)
 
 
 class Network:
@@ -10,14 +8,16 @@ class Network:
                  input_height,  # 2D n_features[0]
                  input_width,  # 2D n_features[1]
                  n_actions,
-                 lr=0.01,
-                 reward_decay=0.9,
+                 lr=0.1,
+                 reward_decay=1.0,
+                 decay=0.9,
                  epsilon=1e-9):
         self.input_height = input_height
         self.input_width = input_width
         self.n_actions = n_actions
         self.lr = lr
         self.reward_decay = reward_decay
+        self.decay = decay
         self.epsilon = epsilon
 
         self._build_net()
@@ -62,7 +62,7 @@ class Network:
             name='dense3'
         )
 
-        drop = tf.nn.dropout(self.l_dense3, keep_prob=1.0)
+        drop = tf.nn.dropout(self.l_dense3, keep_prob=0.95)
 
         self.output = tf.layers.dense(
             inputs=drop,
@@ -78,7 +78,7 @@ class Network:
         self.neg_log_prob = tf.reduce_sum(-tf.log(self.act_prob) * tf.one_hot(self.actions, self.n_actions), axis=1)
         self.loss = tf.reduce_mean(self.neg_log_prob * self.rewards)
 
-        self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.reward_decay, epsilon=self.epsilon)
+        self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.decay, epsilon=self.epsilon)
         # self.optimizer = tf.train.GradientDescentOptimizer(self.lr)
         self.train_op = self.optimizer.minimize(self.loss)
 

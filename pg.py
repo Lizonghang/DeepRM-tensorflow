@@ -11,13 +11,14 @@ learner = Network(
     params.network_input_width,
     params.network_output_dim,
     params.lr,
-    params.reward_decay,
+    params.discount,
+    params.decay,
     params.epsilon
 )
 
 for dynamic_env_time in range(50):
 
-    nw_len_seqs, nw_size_seqs = job_distribution.generate_sequence_work(params, seed=42)
+    nw_len_seqs, nw_size_seqs = job_distribution.generate_sequence_work(params)
 
     env = environment.Env(
         params,
@@ -28,7 +29,9 @@ for dynamic_env_time in range(50):
         end='no_new_job'
     )
 
-    for i_episode in range(10000):
+    env_max_rewards_sum = -100
+
+    for i_episode in range(1000):
         obs = []
         actions = []
         rewards = []
@@ -37,7 +40,7 @@ for dynamic_env_time in range(50):
 
         observation = env.observe()
 
-        for iter in range(2000):
+        for iter in range(200):
 
             action = learner.choose_action(observation)
 
@@ -51,9 +54,9 @@ for dynamic_env_time in range(50):
 
                 rewards_sum = sum(rewards)
 
-                running_reward = running_reward * 0.9 + rewards_sum * 0.1 if 'running_reward' in globals() else rewards_sum
+                if rewards_sum > env_max_rewards_sum:  env_max_rewards_sum = rewards_sum
 
-                print("training on env:", dynamic_env_time, " episode:", i_episode, "  reward:", running_reward)
+                print("training on env:", dynamic_env_time, " episode:", i_episode, " env max reward sum:", env_max_rewards_sum, "  reward sum:", rewards_sum)
 
                 learner.learn(obs, actions, rewards)
 
