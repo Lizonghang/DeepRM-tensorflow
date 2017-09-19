@@ -33,39 +33,39 @@ class Network:
 
         self.l_dense1 = tf.layers.dense(
             inputs=self.states,
-            units=20,
+            units=32,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.02),
             bias_initializer=tf.constant_initializer(0),
             name='dense1'
         )
 
-        # drop = tf.nn.dropout(self.l_dense1, keep_prob=0.9)
+        drop = tf.nn.dropout(self.l_dense1, keep_prob=0.9)
 
         self.l_dense2 = tf.layers.dense(
-            inputs=self.l_dense1,
-            units=40,
+            inputs=drop,
+            units=64,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.22),
             bias_initializer=tf.constant_initializer(0),
             name='dense2'
         )
 
-        # drop = tf.nn.dropout(self.l_dense2, keep_prob=0.8)
+        drop = tf.nn.dropout(self.l_dense2, keep_prob=0.9)
 
         self.l_dense3 = tf.layers.dense(
-            inputs=self.l_dense2,
-            units=20,
+            inputs=drop,
+            units=32,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.16),
             bias_initializer=tf.constant_initializer(0),
             name='dense3'
         )
 
-        # drop = tf.nn.dropout(self.l_dense3, keep_prob=0.95)
+        drop = tf.nn.dropout(self.l_dense3, keep_prob=1.0)
 
         self.output = tf.layers.dense(
-            inputs=self.l_dense3,
+            inputs=drop,
             units=self.n_actions,
             activation=None,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.22),
@@ -78,7 +78,8 @@ class Network:
         self.neg_log_prob = tf.reduce_sum(-tf.log(self.act_prob) * tf.one_hot(self.actions, self.n_actions), axis=1)
         self.loss = tf.reduce_mean(self.neg_log_prob * self.rewards)
 
-        self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.decay, epsilon=self.epsilon)
+        self.optimizer = tf.train.AdamOptimizer(self.lr)
+        # self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.decay, epsilon=self.epsilon)
         # self.optimizer = tf.train.GradientDescentOptimizer(self.lr)
         self.train_op = self.optimizer.minimize(self.loss)
 
