@@ -40,18 +40,22 @@ class Network:
 
         pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME', name='pool1')
 
+        drop = tf.nn.dropout(pool1, keep_prob=0.8)
+
         with tf.name_scope('conv2') as scope:
             kernel = self._variable_with_weight_decay('kernel2', shape=[3, 3, 32, 64], stddev=0.05, wd=0.0)
-            conv = tf.nn.conv2d(pool1, kernel, [1, 1, 1, 1], padding='SAME')
+            conv = tf.nn.conv2d(drop, kernel, [1, 1, 1, 1], padding='SAME')
             biases = self._variable_on_cpu('biases2', [64], tf.constant_initializer(0.1))
             bias = tf.nn.bias_add(conv, biases)
             conv2 = tf.nn.relu(bias, name=scope)
 
         pool2 = tf.nn.max_pool(conv2, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME', name='pool2')
 
+        drop = tf.nn.dropout(pool2, keep_prob=0.8)
+
         with tf.name_scope('local1') as scope:
             local1 = tf.layers.dense(
-                inputs=pool2,
+                inputs=drop,
                 units=32,
                 activation=tf.nn.relu,
                 kernel_initializer=tf.truncated_normal_initializer(0.05),
@@ -59,12 +63,7 @@ class Network:
                 name=scope
             )
 
-        with tf.name_scope('drop') as scope:
-            drop = tf.layers.dropout(
-                inputs=local1,
-                rate=0.3,
-                name=scope
-            )
+        drop = tf.nn.dropout(local1, keep_prob=0.9)
 
         with tf.name_scope('local2') as scope:
             local2 = tf.layers.dense(
@@ -81,8 +80,8 @@ class Network:
         self.neg_log_prob = tf.reduce_sum(-tf.log(self.act_prob) * tf.one_hot(self.actions, self.n_actions), axis=1)
         self.loss = tf.reduce_mean(self.neg_log_prob * self.rewards)
 
-        # self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.reward_decay, epsilon=self.epsilon)
-        self.optimizer = tf.train.GradientDescentOptimizer(self.lr)
+        self.optimizer = tf.train.RMSPropOptimizer(self.lr, self.reward_decay, epsilon=self.epsilon)
+        # self.optimizer = tf.train.GradientDescentOptimizer(self.lr)
         self.train_op = self.optimizer.minimize(self.loss)
 
     def choose_action(self, state):
