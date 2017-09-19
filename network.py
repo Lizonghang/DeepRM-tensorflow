@@ -34,7 +34,7 @@ class Network:
         self.l_dense1 = tf.layers.dense(
             inputs=self.states,
             units=20,
-            activation=tf.nn.tanh,
+            activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.02),
             bias_initializer=tf.constant_initializer(0),
             name='dense1'
@@ -45,7 +45,7 @@ class Network:
         self.l_dense2 = tf.layers.dense(
             inputs=self.l_dense1,
             units=40,
-            activation=tf.nn.tanh,
+            activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.22),
             bias_initializer=tf.constant_initializer(0),
             name='dense2'
@@ -56,7 +56,7 @@ class Network:
         self.l_dense3 = tf.layers.dense(
             inputs=self.l_dense2,
             units=20,
-            activation=tf.nn.tanh,
+            activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.16),
             bias_initializer=tf.constant_initializer(0),
             name='dense3'

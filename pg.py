@@ -3,6 +3,10 @@ import environment
 import parameters
 import job_distribution
 
+"""
+Problem: Fall into the local minimum
+"""
+
 params = parameters.Parameters()
 params.compute_dependent_parameters()
 
