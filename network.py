@@ -40,10 +40,10 @@ class Network:
             name='dense1'
         )
 
-        drop = tf.nn.dropout(self.l_dense1, keep_prob=0.9)
+        # drop = tf.nn.dropout(self.l_dense1, keep_prob=0.9)
 
         self.l_dense2 = tf.layers.dense(
-            inputs=drop,
+            inputs=self.l_dense1,
             units=40,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.22),
@@ -51,10 +51,10 @@ class Network:
             name='dense2'
         )
 
-        drop = tf.nn.dropout(self.l_dense2, keep_prob=0.8)
+        # drop = tf.nn.dropout(self.l_dense2, keep_prob=0.8)
 
         self.l_dense3 = tf.layers.dense(
-            inputs=drop,
+            inputs=self.l_dense2,
             units=20,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.16),
@@ -62,10 +62,10 @@ class Network:
             name='dense3'
         )
 
-        drop = tf.nn.dropout(self.l_dense3, keep_prob=0.95)
+        # drop = tf.nn.dropout(self.l_dense3, keep_prob=0.95)
 
         self.output = tf.layers.dense(
-            inputs=drop,
+            inputs=self.l_dense3,
             units=self.n_actions,
             activation=None,
             kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.22),
